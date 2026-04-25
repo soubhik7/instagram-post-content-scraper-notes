@@ -67,38 +67,47 @@ def create_loader_and_login(username: str, password: str) -> instaloader.Instalo
     return L
 
 
+def _challenge_headers(session, challenge_url: str) -> dict:
+    csrf = session.cookies.get("csrftoken", "")
+    return {
+        "X-CSRFToken": csrf,
+        "X-Instagram-AJAX": "1",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": challenge_url,
+        "Origin": "https://www.instagram.com",
+    }
+
+
 def send_challenge_code(loader: instaloader.Instaloader, challenge_url: str) -> str:
     """
     Ask Instagram to send a verification code to the user's email/phone.
-    Returns a human-readable description of where the code was sent.
+    Returns a hint string. Raises on hard failure.
     """
     if not challenge_url.startswith("http"):
         challenge_url = f"https://www.instagram.com{challenge_url}"
 
     session = loader.context._session
-    # Fetch the challenge page to prime cookies / get CSRF
+    # Prime cookies
     session.get(challenge_url, headers={"Referer": "https://www.instagram.com/"})
-    csrf = session.cookies.get("csrftoken", "")
 
-    # choice=1 → email, choice=0 → SMS (fall back to 1 if only email available)
-    resp = session.post(
-        challenge_url,
-        data={"choice": "1"},
-        headers={
-            "X-CSRFToken": csrf,
-            "Referer": challenge_url,
-            "X-Requested-With": "XMLHttpRequest",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-    )
-    try:
-        data = resp.json()
-    except Exception:
-        data = {}
+    headers = _challenge_headers(session, challenge_url)
 
-    if data.get("status") == "ok":
-        return data.get("message", "Code sent to your email.")
-    # Fallback: still tell user to check — code may have been auto-sent
+    # Try JSON body first (newer /auth_platform/ endpoint), then form-encoded
+    for payload, content_type in [
+        ('{"choice":"1"}', "application/json"),
+        ("choice=1",        "application/x-www-form-urlencoded"),
+    ]:
+        h = {**headers, "Content-Type": content_type}
+        try:
+            resp = session.post(challenge_url, data=payload, headers=h, timeout=10)
+            data = resp.json()
+            if data.get("status") == "ok":
+                return data.get("message") or "Instagram sent a verification code to your email."
+        except Exception:
+            continue
+
+    # Instagram often auto-sends the code when the checkpoint is raised —
+    # even if our explicit request failed, the user may already have received it.
     return "Instagram sent a verification code to your registered email or phone."
 
 
@@ -113,37 +122,36 @@ def verify_challenge_code(
         challenge_url = f"https://www.instagram.com{challenge_url}"
 
     session = loader.context._session
-    csrf = session.cookies.get("csrftoken", "")
+    headers = _challenge_headers(session, challenge_url)
+    code = code.strip()
 
-    resp = session.post(
-        challenge_url,
-        data={"security_code": code.strip()},
-        headers={
-            "X-CSRFToken": csrf,
-            "Referer": challenge_url,
-            "X-Requested-With": "XMLHttpRequest",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-    )
-    try:
-        data = resp.json()
-    except Exception:
-        data = {}
+    # Try JSON body (newer endpoint) then form-encoded (older /challenge/ endpoint)
+    last_err = "Incorrect code or the challenge expired. Please try again."
+    for payload, content_type in [
+        (f'{{"security_code":"{code}"}}', "application/json"),
+        (f"security_code={code}",          "application/x-www-form-urlencoded"),
+    ]:
+        h = {**headers, "Content-Type": content_type}
+        try:
+            resp = session.post(challenge_url, data=payload, headers=h, timeout=10)
+            data = resp.json()
+        except Exception:
+            continue
 
-    if data.get("status") != "ok":
-        raise ValueError(data.get("message", "Incorrect code. Please try again."))
+        if data.get("status") == "ok":
+            username = loader.test_login()
+            if not username:
+                raise ValueError("Verification accepted but session is still invalid.")
+            try:
+                loader.save_session_to_file(_session_file(username))
+            except Exception:
+                pass
+            return username
 
-    # Confirm the session is now authenticated
-    username = loader.test_login()
-    if not username:
-        raise ValueError("Verification succeeded but session is still invalid.")
+        # Capture the error message but keep trying the other format
+        last_err = data.get("message") or last_err
 
-    try:
-        loader.save_session_to_file(_session_file(username))
-    except Exception:
-        pass
-
-    return username
+    raise ValueError(last_err)
 
 
 def scrape_instagram_post(url: str, loader: instaloader.Instaloader) -> str:
