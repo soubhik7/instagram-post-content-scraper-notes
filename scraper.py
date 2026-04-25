@@ -18,31 +18,16 @@ def extract_shortcode(url: str) -> str:
     raise ValueError(f"Could not extract shortcode from URL: {url}")
 
 
-def create_loader_from_sessionid(sessionid: str) -> tuple[instaloader.Instaloader, str]:
-    """Login using an Instagram session cookie. Returns (loader, username)."""
-    L = instaloader.Instaloader(
+def _make_loader() -> instaloader.Instaloader:
+    return instaloader.Instaloader(
         download_video_thumbnails=False,
         save_metadata=False,
         download_comments=False,
     )
-    L.context._session.cookies.set("sessionid", sessionid, domain=".instagram.com")
-    username = L.test_login()
-    if not username:
-        raise ValueError("Session cookie is invalid or expired.")
-    # Persist so future password logins can reuse it
-    try:
-        L.save_session_to_file(_session_file(username))
-    except Exception:
-        pass
-    return L, username
 
 
 def create_loader_and_login(username: str, password: str) -> instaloader.Instaloader:
-    L = instaloader.Instaloader(
-        download_video_thumbnails=False,
-        save_metadata=False,
-        download_comments=False,
-    )
+    L = _make_loader()
 
     # Try reusing a saved session first — avoids re-auth and checkpoint triggers
     session_path = _session_file(username)
@@ -54,10 +39,8 @@ def create_loader_and_login(username: str, password: str) -> instaloader.Instalo
         except Exception as e:
             print(f"Saved session invalid, doing fresh login: {e}")
 
-    # Fresh login
     L.login(username, password)
 
-    # Persist session so future logins skip this step
     try:
         L.save_session_to_file(session_path)
         print(f"Session saved for {username}")
@@ -65,6 +48,85 @@ def create_loader_and_login(username: str, password: str) -> instaloader.Instalo
         print(f"Could not save session: {e}")
 
     return L
+
+
+def send_challenge_code(loader: instaloader.Instaloader, challenge_url: str) -> str:
+    """
+    Ask Instagram to send a verification code to the user's email/phone.
+    Returns a human-readable description of where the code was sent.
+    """
+    if not challenge_url.startswith("http"):
+        challenge_url = f"https://www.instagram.com{challenge_url}"
+
+    session = loader.context._session
+    # Fetch the challenge page to prime cookies / get CSRF
+    session.get(challenge_url, headers={"Referer": "https://www.instagram.com/"})
+    csrf = session.cookies.get("csrftoken", "")
+
+    # choice=1 → email, choice=0 → SMS (fall back to 1 if only email available)
+    resp = session.post(
+        challenge_url,
+        data={"choice": "1"},
+        headers={
+            "X-CSRFToken": csrf,
+            "Referer": challenge_url,
+            "X-Requested-With": "XMLHttpRequest",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+    try:
+        data = resp.json()
+    except Exception:
+        data = {}
+
+    if data.get("status") == "ok":
+        return data.get("message", "Code sent to your email.")
+    # Fallback: still tell user to check — code may have been auto-sent
+    return "Instagram sent a verification code to your registered email or phone."
+
+
+def verify_challenge_code(
+    loader: instaloader.Instaloader, challenge_url: str, code: str
+) -> str:
+    """
+    Submit the verification code. Returns the authenticated username on success,
+    raises ValueError on failure.
+    """
+    if not challenge_url.startswith("http"):
+        challenge_url = f"https://www.instagram.com{challenge_url}"
+
+    session = loader.context._session
+    csrf = session.cookies.get("csrftoken", "")
+
+    resp = session.post(
+        challenge_url,
+        data={"security_code": code.strip()},
+        headers={
+            "X-CSRFToken": csrf,
+            "Referer": challenge_url,
+            "X-Requested-With": "XMLHttpRequest",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+    try:
+        data = resp.json()
+    except Exception:
+        data = {}
+
+    if data.get("status") != "ok":
+        raise ValueError(data.get("message", "Incorrect code. Please try again."))
+
+    # Confirm the session is now authenticated
+    username = loader.test_login()
+    if not username:
+        raise ValueError("Verification succeeded but session is still invalid.")
+
+    try:
+        loader.save_session_to_file(_session_file(username))
+    except Exception:
+        pass
+
+    return username
 
 
 def scrape_instagram_post(url: str, loader: instaloader.Instaloader) -> str:

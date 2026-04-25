@@ -11,7 +11,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from scraper import create_loader_and_login, create_loader_from_sessionid, scrape_instagram_post
+from scraper import (
+    create_loader_and_login,
+    send_challenge_code,
+    verify_challenge_code,
+    scrape_instagram_post,
+)
 from doc_generator import generate_document
 
 app = FastAPI(title="SmartDocs")
@@ -20,32 +25,33 @@ os.makedirs("static", exist_ok=True)
 os.makedirs("docs", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
 # ---------------------------------------------------------------------------
-# In-memory session + file store (single-process; fine for Render free tier)
+# In-memory stores
 # ---------------------------------------------------------------------------
 
-SESSION_TTL = timedelta(hours=2)
-FILE_TTL = timedelta(hours=1)
+SESSION_TTL   = timedelta(hours=2)
+FILE_TTL      = timedelta(hours=1)
+CHALLENGE_TTL = timedelta(minutes=10)
 
 _lock = threading.Lock()
 
-# session_id -> {loader, username, expires_at}
+# session_id   -> {loader, username, expires_at}
 _sessions: Dict[str, dict] = {}
 
-# file_id -> {path, expires_at}
+# challenge_id -> {loader, username, challenge_url, expires_at}
+_challenges: Dict[str, dict] = {}
+
+# file_id      -> {path, filename, expires_at}
 _files: Dict[str, dict] = {}
 
 
 def _purge_expired():
     now = datetime.utcnow()
     with _lock:
-        expired_s = [k for k, v in _sessions.items() if v["expires_at"] < now]
-        for k in expired_s:
-            del _sessions[k]
-        expired_f = [k for k, v in _files.items() if v["expires_at"] < now]
-        for k in expired_f:
-            del _files[k]
+        for store in (_sessions, _challenges, _files):
+            expired = [k for k, v in store.items() if v["expires_at"] < now]
+            for k in expired:
+                del store[k]
 
 
 def _get_session(session_id: str) -> dict:
@@ -62,16 +68,20 @@ def _get_session(session_id: str) -> dict:
 # ---------------------------------------------------------------------------
 
 class LoginRequest(BaseModel):
-    username: Optional[str] = None
-    password: Optional[str] = None
-    sessionid: Optional[str] = None
+    username: str
+    password: str
 
 class LoginResponse(BaseModel):
     session_id: str
     username: str
 
-class CheckpointError(BaseModel):
-    checkpoint_url: str
+class ChallengeStartResponse(BaseModel):
+    challenge_id: str
+    hint: str           # "Code sent to your email." etc.
+
+class ChallengeVerifyRequest(BaseModel):
+    challenge_id: str
+    code: str
 
 class ExtractRequest(BaseModel):
     session_id: str
@@ -94,40 +104,35 @@ def serve_frontend():
     return FileResponse("static/index.html")
 
 
-@app.post("/login", response_model=LoginResponse)
+@app.post("/login")
 def login(req: LoginRequest):
-    # ── Session cookie login (preferred — no checkpoint issues) ──
-    if req.sessionid and req.sessionid.strip():
-        try:
-            loader, username = create_loader_from_sessionid(req.sessionid.strip())
-        except Exception as e:
-            raise HTTPException(status_code=401, detail=f"Invalid session cookie: {e}")
-        session_id = secrets.token_urlsafe(32)
-        with _lock:
-            _sessions[session_id] = {
-                "loader": loader,
-                "username": username,
-                "expires_at": datetime.utcnow() + SESSION_TTL,
-            }
-        return LoginResponse(session_id=session_id, username=username)
-
-    # ── Password login ──
-    if not req.username or not req.username.strip() or not req.password:
-        raise HTTPException(status_code=400, detail="Provide either a session cookie or username + password.")
+    if not req.username.strip() or not req.password:
+        raise HTTPException(status_code=400, detail="Username and password are required.")
     try:
         loader = create_loader_and_login(req.username.strip(), req.password)
     except instaloader.exceptions.BadCredentialsException:
         raise HTTPException(status_code=401, detail="Invalid Instagram username or password.")
     except instaloader.exceptions.InstaloaderException as e:
         msg = str(e)
-        cp_match = re.search(r"(https?://[^\s]+/auth_platform/[^\s]*)", msg)
+        cp_match = re.search(r"(https?://[^\s]+/(?:challenge|auth_platform)[^\s]*)", msg)
         if not cp_match:
             cp_match = re.search(r"Point your browser to (/[^\s]+)", msg)
         if cp_match:
-            raise HTTPException(
-                status_code=409,
-                detail={"type": "checkpoint", "url": cp_match.group(1)},
-            )
+            challenge_url = cp_match.group(1)
+            challenge_id = secrets.token_urlsafe(24)
+            with _lock:
+                _challenges[challenge_id] = {
+                    "loader": loader,
+                    "username": req.username.strip(),
+                    "challenge_url": challenge_url,
+                    "expires_at": datetime.utcnow() + CHALLENGE_TTL,
+                }
+            # Try to trigger the code send immediately
+            try:
+                hint = send_challenge_code(loader, challenge_url)
+            except Exception:
+                hint = "Instagram sent a verification code to your registered email or phone."
+            return {"type": "challenge", "challenge_id": challenge_id, "hint": hint}
         raise HTTPException(status_code=502, detail=f"Instagram login error: {msg}")
 
     session_id = secrets.token_urlsafe(32)
@@ -137,7 +142,33 @@ def login(req: LoginRequest):
             "username": req.username.strip(),
             "expires_at": datetime.utcnow() + SESSION_TTL,
         }
-    return LoginResponse(session_id=session_id, username=req.username.strip())
+    return {"type": "success", "session_id": session_id, "username": req.username.strip()}
+
+
+@app.post("/challenge/verify")
+def challenge_verify(req: ChallengeVerifyRequest):
+    _purge_expired()
+    with _lock:
+        entry = _challenges.get(req.challenge_id)
+    if not entry:
+        raise HTTPException(status_code=410, detail="Challenge expired. Please sign in again.")
+
+    try:
+        username = verify_challenge_code(entry["loader"], entry["challenge_url"], req.code)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    with _lock:
+        _challenges.pop(req.challenge_id, None)
+
+    session_id = secrets.token_urlsafe(32)
+    with _lock:
+        _sessions[session_id] = {
+            "loader": entry["loader"],
+            "username": username,
+            "expires_at": datetime.utcnow() + SESSION_TTL,
+        }
+    return {"session_id": session_id, "username": username}
 
 
 @app.post("/logout")
