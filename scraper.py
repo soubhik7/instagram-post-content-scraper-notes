@@ -18,6 +18,14 @@ def extract_shortcode(url: str) -> str:
     raise ValueError(f"Could not extract shortcode from URL: {url}")
 
 
+class CheckpointRequired(Exception):
+    """Raised when Instagram demands a challenge; carries the loader and URL."""
+    def __init__(self, loader: instaloader.Instaloader, challenge_url: str):
+        self.loader = loader
+        self.challenge_url = challenge_url
+        super().__init__(f"Checkpoint required: {challenge_url}")
+
+
 def _make_loader() -> instaloader.Instaloader:
     return instaloader.Instaloader(
         download_video_thumbnails=False,
@@ -39,7 +47,16 @@ def create_loader_and_login(username: str, password: str) -> instaloader.Instalo
         except Exception as e:
             print(f"Saved session invalid, doing fresh login: {e}")
 
-    L.login(username, password)
+    try:
+        L.login(username, password)
+    except instaloader.exceptions.InstaloaderException as e:
+        msg = str(e)
+        cp_match = re.search(r"(https?://[^\s]+/(?:challenge|auth_platform)[^\s]*)", msg)
+        if not cp_match:
+            cp_match = re.search(r"Point your browser to (/[^\s]+)", msg)
+        if cp_match:
+            raise CheckpointRequired(L, cp_match.group(1))
+        raise
 
     try:
         L.save_session_to_file(session_path)

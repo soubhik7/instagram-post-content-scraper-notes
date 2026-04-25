@@ -1,5 +1,4 @@
 import os
-import re
 import secrets
 import threading
 from datetime import datetime, timedelta
@@ -12,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from scraper import (
+    CheckpointRequired,
     create_loader_and_login,
     send_challenge_code,
     verify_challenge_code,
@@ -112,28 +112,22 @@ def login(req: LoginRequest):
         loader = create_loader_and_login(req.username.strip(), req.password)
     except instaloader.exceptions.BadCredentialsException:
         raise HTTPException(status_code=401, detail="Invalid Instagram username or password.")
+    except CheckpointRequired as e:
+        challenge_id = secrets.token_urlsafe(24)
+        with _lock:
+            _challenges[challenge_id] = {
+                "loader": e.loader,
+                "username": req.username.strip(),
+                "challenge_url": e.challenge_url,
+                "expires_at": datetime.utcnow() + CHALLENGE_TTL,
+            }
+        try:
+            hint = send_challenge_code(e.loader, e.challenge_url)
+        except Exception:
+            hint = "Instagram sent a verification code to your registered email or phone."
+        return {"type": "challenge", "challenge_id": challenge_id, "hint": hint}
     except instaloader.exceptions.InstaloaderException as e:
-        msg = str(e)
-        cp_match = re.search(r"(https?://[^\s]+/(?:challenge|auth_platform)[^\s]*)", msg)
-        if not cp_match:
-            cp_match = re.search(r"Point your browser to (/[^\s]+)", msg)
-        if cp_match:
-            challenge_url = cp_match.group(1)
-            challenge_id = secrets.token_urlsafe(24)
-            with _lock:
-                _challenges[challenge_id] = {
-                    "loader": loader,
-                    "username": req.username.strip(),
-                    "challenge_url": challenge_url,
-                    "expires_at": datetime.utcnow() + CHALLENGE_TTL,
-                }
-            # Try to trigger the code send immediately
-            try:
-                hint = send_challenge_code(loader, challenge_url)
-            except Exception:
-                hint = "Instagram sent a verification code to your registered email or phone."
-            return {"type": "challenge", "challenge_id": challenge_id, "hint": hint}
-        raise HTTPException(status_code=502, detail=f"Instagram login error: {msg}")
+        raise HTTPException(status_code=502, detail=f"Instagram login error: {e}")
 
     session_id = secrets.token_urlsafe(32)
     with _lock:
