@@ -25,7 +25,7 @@ Turn Instagram posts into clean, downloadable Word documents. Sign in with your 
 python3 -m venv venv && source venv/bin/activate
 
 # 2. Install dependencies
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 
 # 3. (Optional) Set fallback credentials via .env
 cp .env.template .env   # fill in INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD
