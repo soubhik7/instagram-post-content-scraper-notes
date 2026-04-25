@@ -413,6 +413,26 @@
         }
       });
 
+      // ── Fetch wrapper — always returns {ok, status, data} ─────────────────
+      async function apiFetch(url, body) {
+        let res, data;
+        try {
+          res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+        } catch (e) {
+          return { ok: false, status: 0, data: null, err: "Network error — is the server running?" };
+        }
+        try {
+          data = await res.json();
+        } catch {
+          data = null;
+        }
+        return { ok: res.ok, status: res.status, data };
+      }
+
       // ── Login ─────────────────────────────────────────────────────────────
       async function doLogin() {
         clearAlert("loginAlert");
@@ -423,39 +443,30 @@
           return;
         }
         setLoading("loginBtn", "loginBtnText", true, "Signing in…");
-        try {
-          const res = await fetch("/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password }),
-          });
-          const data = await res.json();
+        const { ok, status, data, err } = await apiFetch("/login", { username, password });
+        setLoading("loginBtn", "loginBtnText", false, "Sign In");
 
-          if (!res.ok) {
-            setAlert("loginAlert", "loginAlertMsg", data.detail || "Login failed.");
-            return;
-          }
-
-          if (data.type === "challenge") {
-            challengeId = data.challenge_id;
-            document.getElementById("verifyHint").innerHTML =
-              data.hint
-                ? `<strong>${data.hint}</strong><br>Enter the 6-digit code below.`
-                : "Enter the 6-digit code Instagram sent to your email or phone.";
-            clearAlert("verifyAlert");
-            document.getElementById("otpInput").value = "";
-            showPanel("Verify");
-            setTimeout(() => document.getElementById("otpInput").focus(), 100);
-            return;
-          }
-
-          // Successful direct login
-          onLoginSuccess(data.session_id, data.username);
-        } catch {
-          setAlert("loginAlert", "loginAlertMsg", "Could not reach the server. Please try again.");
-        } finally {
-          setLoading("loginBtn", "loginBtnText", false, "Sign In");
+        if (err) { setAlert("loginAlert", "loginAlertMsg", err); return; }
+        if (!ok) {
+          const msg = typeof data?.detail === "string" ? data.detail : JSON.stringify(data?.detail) || `Server error (${status})`;
+          setAlert("loginAlert", "loginAlertMsg", msg);
+          return;
         }
+
+        if (data?.type === "challenge") {
+          challengeId = data.challenge_id;
+          document.getElementById("verifyHint").innerHTML =
+            data.hint
+              ? `<strong>${data.hint}</strong><br>Enter the 6-digit code below.`
+              : "Enter the 6-digit code Instagram sent to your email or phone.";
+          clearAlert("verifyAlert");
+          document.getElementById("otpInput").value = "";
+          showPanel("Verify");
+          setTimeout(() => document.getElementById("otpInput").focus(), 100);
+          return;
+        }
+
+        onLoginSuccess(data.session_id, data.username);
       }
 
       document.getElementById("loginBtn").addEventListener("click", doLogin);
@@ -472,29 +483,21 @@
           return;
         }
         setLoading("verifyBtn", "verifyBtnText", true, "Verifying…");
-        try {
-          const res = await fetch("/challenge/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ challenge_id: challengeId, code }),
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            if (res.status === 410) {
-              setAlert("verifyAlert", "verifyAlertMsg", "Challenge expired. Please sign in again.");
-              setTimeout(() => { challengeId = null; showPanel("Login"); }, 1800);
-              return;
-            }
-            setAlert("verifyAlert", "verifyAlertMsg", data.detail || "Incorrect code. Try again.");
+        const { ok, status, data, err } = await apiFetch("/challenge/verify", { challenge_id: challengeId, code });
+        setLoading("verifyBtn", "verifyBtnText", false, "Verify &amp; Sign In");
+
+        if (err) { setAlert("verifyAlert", "verifyAlertMsg", err); return; }
+        if (!ok) {
+          if (status === 410) {
+            setAlert("verifyAlert", "verifyAlertMsg", "Challenge expired. Please sign in again.");
+            setTimeout(() => { challengeId = null; showPanel("Login"); }, 1800);
             return;
           }
-          challengeId = null;
-          onLoginSuccess(data.session_id, data.username);
-        } catch {
-          setAlert("verifyAlert", "verifyAlertMsg", "Could not reach the server. Please try again.");
-        } finally {
-          setLoading("verifyBtn", "verifyBtnText", false, "Verify &amp; Sign In");
+          setAlert("verifyAlert", "verifyAlertMsg", data?.detail || "Incorrect code. Try again.");
+          return;
         }
+        challengeId = null;
+        onLoginSuccess(data.session_id, data.username);
       }
 
       document.getElementById("verifyBtn").addEventListener("click", doVerify);
@@ -552,31 +555,23 @@
         }
 
         setLoading("extractBtn", "extractBtnText", true, "Extracting…");
-        try {
-          const res = await fetch("/extract", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ session_id: sessionId, url }),
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            if (res.status === 401) {
-              sessionId = null;
-              setAlert("extractAlert", "extractAlertMsg", "Session expired. Please sign in again.");
-              setTimeout(() => showPanel("Login"), 1800);
-              return;
-            }
-            setAlert("extractAlert", "extractAlertMsg", data.detail || "Extraction failed.");
+        const { ok, status, data, err } = await apiFetch("/extract", { session_id: sessionId, url });
+        setLoading("extractBtn", "extractBtnText", false, "Extract &amp; Generate Doc");
+
+        if (err) { setAlert("extractAlert", "extractAlertMsg", err); return; }
+        if (!ok) {
+          if (status === 401) {
+            sessionId = null;
+            setAlert("extractAlert", "extractAlertMsg", "Session expired. Please sign in again.");
+            setTimeout(() => showPanel("Login"), 1800);
             return;
           }
-          currentFileId = data.file_id;
-          document.getElementById("resultFilename").textContent = data.filename;
-          document.getElementById("resultCard").classList.add("show");
-        } catch {
-          setAlert("extractAlert", "extractAlertMsg", "Could not reach the server. Please try again.");
-        } finally {
-          setLoading("extractBtn", "extractBtnText", false, "Extract &amp; Generate Doc");
+          setAlert("extractAlert", "extractAlertMsg", data?.detail || `Extraction failed (${status}).`);
+          return;
         }
+        currentFileId = data.file_id;
+        document.getElementById("resultFilename").textContent = data.filename;
+        document.getElementById("resultCard").classList.add("show");
       }
 
       document.getElementById("extractBtn").addEventListener("click", doExtract);
