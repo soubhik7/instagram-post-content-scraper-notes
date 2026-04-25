@@ -1,4 +1,5 @@
 import os
+import re
 import secrets
 import threading
 from datetime import datetime, timedelta
@@ -68,6 +69,9 @@ class LoginResponse(BaseModel):
     session_id: str
     username: str
 
+class CheckpointError(BaseModel):
+    checkpoint_url: str
+
 class ExtractRequest(BaseModel):
     session_id: str
     url: str
@@ -98,7 +102,18 @@ def login(req: LoginRequest):
     except instaloader.exceptions.BadCredentialsException:
         raise HTTPException(status_code=401, detail="Invalid Instagram username or password.")
     except instaloader.exceptions.InstaloaderException as e:
-        raise HTTPException(status_code=502, detail=f"Instagram login error: {e}")
+        msg = str(e)
+        # Extract checkpoint URL if present and return it as a distinct error code
+        # so the UI can render it as a clickable link
+        cp_match = re.search(r"(https?://[^\s]+/auth_platform/[^\s]*)", msg)
+        if not cp_match:
+            cp_match = re.search(r"Point your browser to (/[^\s]+)", msg)
+        if cp_match:
+            raise HTTPException(
+                status_code=409,
+                detail={"type": "checkpoint", "url": cp_match.group(1)},
+            )
+        raise HTTPException(status_code=502, detail=f"Instagram login error: {msg}")
 
     session_id = secrets.token_urlsafe(32)
     with _lock:

@@ -3,6 +3,13 @@ import re
 import instaloader
 from datetime import datetime
 
+SESSIONS_DIR = os.path.abspath("sessions")
+
+
+def _session_file(username: str) -> str:
+    os.makedirs(SESSIONS_DIR, exist_ok=True)
+    return os.path.join(SESSIONS_DIR, f"session-{username}")
+
 
 def extract_shortcode(url: str) -> str:
     match = re.search(r"/(?:p|reel|tv)/([^/?#&]+)", url)
@@ -17,7 +24,27 @@ def create_loader_and_login(username: str, password: str) -> instaloader.Instalo
         save_metadata=False,
         download_comments=False,
     )
+
+    # Try reusing a saved session first — avoids re-auth and checkpoint triggers
+    session_path = _session_file(username)
+    if os.path.exists(session_path):
+        try:
+            L.load_session_from_file(username, session_path)
+            print(f"Loaded saved session for {username}")
+            return L
+        except Exception as e:
+            print(f"Saved session invalid, doing fresh login: {e}")
+
+    # Fresh login
     L.login(username, password)
+
+    # Persist session so future logins skip this step
+    try:
+        L.save_session_to_file(session_path)
+        print(f"Session saved for {username}")
+    except Exception as e:
+        print(f"Could not save session: {e}")
+
     return L
 
 
@@ -29,7 +56,6 @@ def scrape_instagram_post(url: str, loader: instaloader.Instaloader) -> str:
     target_dir = os.path.join(base_raw, folder_name)
     os.makedirs(target_dir, exist_ok=True)
 
-    # Override dirname_pattern so files land in the dated folder
     loader.dirname_pattern = target_dir
 
     try:

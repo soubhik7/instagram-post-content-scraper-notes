@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p docs static
+RUN mkdir -p docs static sessions
 
 EXPOSE 8000
 

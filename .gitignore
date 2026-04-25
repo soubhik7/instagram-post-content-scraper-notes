@@ -6,5 +6,6 @@ __pycache__/
 *.pyd
 docs/
 raw/
+sessions/
 *.docx
 .DS_Store
