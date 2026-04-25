@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from scraper import SESSIONS_DIR, create_loader_and_login, scrape_instagram_post
+from scraper import create_loader_and_login, scrape_instagram_post
 from doc_generator import generate_document
 
 app = FastAPI(title="SmartDocs")
