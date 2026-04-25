@@ -1,4 +1,5 @@
 import os
+import re
 import secrets
 import threading
 from datetime import datetime, timedelta
@@ -10,13 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from scraper import (
-    CheckpointRequired,
-    create_loader_and_login,
-    send_challenge_code,
-    verify_challenge_code,
-    scrape_instagram_post,
-)
+from scraper import create_loader_and_login, scrape_instagram_post
 from doc_generator import generate_document
 
 app = FastAPI(title="SmartDocs")
@@ -25,33 +20,32 @@ os.makedirs("static", exist_ok=True)
 os.makedirs("docs", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 # ---------------------------------------------------------------------------
-# In-memory stores
+# In-memory session + file store (single-process; fine for Render free tier)
 # ---------------------------------------------------------------------------
 
-SESSION_TTL   = timedelta(hours=2)
-FILE_TTL      = timedelta(hours=1)
-CHALLENGE_TTL = timedelta(minutes=10)
+SESSION_TTL = timedelta(hours=2)
+FILE_TTL = timedelta(hours=1)
 
 _lock = threading.Lock()
 
-# session_id   -> {loader, username, expires_at}
+# session_id -> {loader, username, expires_at}
 _sessions: Dict[str, dict] = {}
 
-# challenge_id -> {loader, username, challenge_url, expires_at}
-_challenges: Dict[str, dict] = {}
-
-# file_id      -> {path, filename, expires_at}
+# file_id -> {path, expires_at}
 _files: Dict[str, dict] = {}
 
 
 def _purge_expired():
     now = datetime.utcnow()
     with _lock:
-        for store in (_sessions, _challenges, _files):
-            expired = [k for k, v in store.items() if v["expires_at"] < now]
-            for k in expired:
-                del store[k]
+        expired_s = [k for k, v in _sessions.items() if v["expires_at"] < now]
+        for k in expired_s:
+            del _sessions[k]
+        expired_f = [k for k, v in _files.items() if v["expires_at"] < now]
+        for k in expired_f:
+            del _files[k]
 
 
 def _get_session(session_id: str) -> dict:
@@ -75,13 +69,8 @@ class LoginResponse(BaseModel):
     session_id: str
     username: str
 
-class ChallengeStartResponse(BaseModel):
-    challenge_id: str
-    hint: str           # "Code sent to your email." etc.
-
-class ChallengeVerifyRequest(BaseModel):
-    challenge_id: str
-    code: str
+class CheckpointError(BaseModel):
+    checkpoint_url: str
 
 class ExtractRequest(BaseModel):
     session_id: str
@@ -104,7 +93,7 @@ def serve_frontend():
     return FileResponse("static/index.html")
 
 
-@app.post("/login")
+@app.post("/login", response_model=LoginResponse)
 def login(req: LoginRequest):
     if not req.username.strip() or not req.password:
         raise HTTPException(status_code=400, detail="Username and password are required.")
@@ -112,22 +101,19 @@ def login(req: LoginRequest):
         loader = create_loader_and_login(req.username.strip(), req.password)
     except instaloader.exceptions.BadCredentialsException:
         raise HTTPException(status_code=401, detail="Invalid Instagram username or password.")
-    except CheckpointRequired as e:
-        challenge_id = secrets.token_urlsafe(24)
-        with _lock:
-            _challenges[challenge_id] = {
-                "loader": e.loader,
-                "username": req.username.strip(),
-                "challenge_url": e.challenge_url,
-                "expires_at": datetime.utcnow() + CHALLENGE_TTL,
-            }
-        try:
-            hint = send_challenge_code(e.loader, e.challenge_url)
-        except Exception:
-            hint = "Instagram sent a verification code to your registered email or phone."
-        return {"type": "challenge", "challenge_id": challenge_id, "hint": hint}
     except instaloader.exceptions.InstaloaderException as e:
-        raise HTTPException(status_code=502, detail=f"Instagram login error: {e}")
+        msg = str(e)
+        # Extract checkpoint URL if present and return it as a distinct error code
+        # so the UI can render it as a clickable link
+        cp_match = re.search(r"(https?://[^\s]+/auth_platform/[^\s]*)", msg)
+        if not cp_match:
+            cp_match = re.search(r"Point your browser to (/[^\s]+)", msg)
+        if cp_match:
+            raise HTTPException(
+                status_code=409,
+                detail={"type": "checkpoint", "url": cp_match.group(1)},
+            )
+        raise HTTPException(status_code=502, detail=f"Instagram login error: {msg}")
 
     session_id = secrets.token_urlsafe(32)
     with _lock:
@@ -136,33 +122,7 @@ def login(req: LoginRequest):
             "username": req.username.strip(),
             "expires_at": datetime.utcnow() + SESSION_TTL,
         }
-    return {"type": "success", "session_id": session_id, "username": req.username.strip()}
-
-
-@app.post("/challenge/verify")
-def challenge_verify(req: ChallengeVerifyRequest):
-    _purge_expired()
-    with _lock:
-        entry = _challenges.get(req.challenge_id)
-    if not entry:
-        raise HTTPException(status_code=410, detail="Challenge expired. Please sign in again.")
-
-    try:
-        username = verify_challenge_code(entry["loader"], entry["challenge_url"], req.code)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    with _lock:
-        _challenges.pop(req.challenge_id, None)
-
-    session_id = secrets.token_urlsafe(32)
-    with _lock:
-        _sessions[session_id] = {
-            "loader": entry["loader"],
-            "username": username,
-            "expires_at": datetime.utcnow() + SESSION_TTL,
-        }
-    return {"session_id": session_id, "username": username}
+    return LoginResponse(session_id=session_id, username=req.username.strip())
 
 
 @app.post("/logout")
