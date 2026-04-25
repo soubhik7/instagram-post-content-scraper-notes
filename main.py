@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from scraper import create_loader_and_login, scrape_instagram_post
+from scraper import create_loader_and_login, create_loader_from_sessionid, scrape_instagram_post
 from doc_generator import generate_document
 
 app = FastAPI(title="SmartDocs")
@@ -62,8 +62,9 @@ def _get_session(session_id: str) -> dict:
 # ---------------------------------------------------------------------------
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    sessionid: Optional[str] = None
 
 class LoginResponse(BaseModel):
     session_id: str
@@ -95,16 +96,30 @@ def serve_frontend():
 
 @app.post("/login", response_model=LoginResponse)
 def login(req: LoginRequest):
-    if not req.username.strip() or not req.password:
-        raise HTTPException(status_code=400, detail="Username and password are required.")
+    # ── Session cookie login (preferred — no checkpoint issues) ──
+    if req.sessionid and req.sessionid.strip():
+        try:
+            loader, username = create_loader_from_sessionid(req.sessionid.strip())
+        except Exception as e:
+            raise HTTPException(status_code=401, detail=f"Invalid session cookie: {e}")
+        session_id = secrets.token_urlsafe(32)
+        with _lock:
+            _sessions[session_id] = {
+                "loader": loader,
+                "username": username,
+                "expires_at": datetime.utcnow() + SESSION_TTL,
+            }
+        return LoginResponse(session_id=session_id, username=username)
+
+    # ── Password login ──
+    if not req.username or not req.username.strip() or not req.password:
+        raise HTTPException(status_code=400, detail="Provide either a session cookie or username + password.")
     try:
         loader = create_loader_and_login(req.username.strip(), req.password)
     except instaloader.exceptions.BadCredentialsException:
         raise HTTPException(status_code=401, detail="Invalid Instagram username or password.")
     except instaloader.exceptions.InstaloaderException as e:
         msg = str(e)
-        # Extract checkpoint URL if present and return it as a distinct error code
-        # so the UI can render it as a clickable link
         cp_match = re.search(r"(https?://[^\s]+/auth_platform/[^\s]*)", msg)
         if not cp_match:
             cp_match = re.search(r"Point your browser to (/[^\s]+)", msg)

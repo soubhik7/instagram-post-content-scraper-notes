@@ -363,6 +363,50 @@
         width: auto;
       }
       .eye-btn:hover { color: var(--text); }
+
+      /* ── Login method tabs ── */
+      .method-tabs {
+        display: flex;
+        border-radius: 10px;
+        background: rgba(0,0,0,0.25);
+        border: 1px solid var(--border);
+        padding: 4px;
+        gap: 4px;
+      }
+      .method-tab {
+        flex: 1;
+        padding: 9px 8px;
+        border-radius: 7px;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+        width: auto;
+      }
+      .method-tab.active {
+        background: var(--primary);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(99,102,241,0.4);
+      }
+      .method-tab:not(.active):hover { color: var(--text); background: rgba(255,255,255,0.06); }
+
+      /* ── Info box ── */
+      .info-box {
+        padding: 11px 13px;
+        border-radius: 10px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #94a3b8;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid var(--border);
+      }
+      .info-box strong { color: #c4b5fd; }
+      .info-box a { color: #818cf8; text-decoration: none; }
+      .info-box a:hover { text-decoration: underline; }
     </style>
   </head>
   <body>
@@ -390,39 +434,69 @@
             <span id="loginAlertMsg"></span>
           </div>
 
-          <!-- Shown only when Instagram returns a checkpoint challenge -->
-          <div class="checkpoint-panel" id="checkpointPanel">
-            <div class="checkpoint-title">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              Instagram Security Check Required
-            </div>
-            <div class="checkpoint-steps">
-              <ol>
-                <li>Click the button below to open Instagram's verification page.</li>
-                <li>Complete the security check while logged in as this account.</li>
-                <li>Return here and click <strong>Sign In</strong> again.</li>
-              </ol>
-            </div>
-            <a id="checkpointLink" href="#" target="_blank" rel="noopener noreferrer" class="checkpoint-link">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              Open Verification Page
-            </a>
+          <!-- Login method tabs -->
+          <div class="method-tabs">
+            <button class="method-tab active" id="tabCookie" type="button">🍪 Session Cookie</button>
+            <button class="method-tab" id="tabPassword" type="button">🔑 Password</button>
           </div>
 
-          <div class="field">
-            <label for="lgUser">Instagram Username</label>
-            <input id="lgUser" type="text" placeholder="your_username" autocomplete="username" />
+          <!-- Cookie login panel -->
+          <div id="cookiePanel" class="stack">
+            <div class="info-box">
+              <strong>Recommended — no verification needed.</strong><br>
+              1. Open <a href="https://www.instagram.com" target="_blank" rel="noopener">instagram.com</a> and log in.<br>
+              2. Open DevTools → Application → Cookies → <code>sessionid</code>.<br>
+              3. Copy the value and paste it below.
+            </div>
+            <div class="field">
+              <label for="lgSessionId">Instagram Session Cookie</label>
+              <div class="input-wrap">
+                <input id="lgSessionId" type="password" placeholder="Paste sessionid value here" autocomplete="off" />
+                <button class="eye-btn" id="eyeBtnCookie" type="button" aria-label="Toggle visibility">
+                  <svg id="eyeIconCookie" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div class="field">
-            <label for="lgPass">Password</label>
-            <div class="input-wrap">
-              <input id="lgPass" type="password" placeholder="••••••••" autocomplete="current-password" />
-              <button class="eye-btn" id="eyeBtn" type="button" aria-label="Toggle password visibility">
-                <svg id="eyeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
+          <!-- Password login panel -->
+          <div id="passwordPanel" class="stack" style="display:none;">
+            <!-- Shown only when Instagram returns a checkpoint challenge -->
+            <div class="checkpoint-panel" id="checkpointPanel">
+              <div class="checkpoint-title">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Instagram Security Check Required
+              </div>
+              <div class="checkpoint-steps">
+                <ol>
+                  <li>Click the button below to open Instagram's verification page.</li>
+                  <li>Complete the security check while logged in as this account.</li>
+                  <li>Return here and click <strong>Sign In</strong> again, or switch to Cookie login.</li>
+                </ol>
+              </div>
+              <a id="checkpointLink" href="#" target="_blank" rel="noopener noreferrer" class="checkpoint-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Open Verification Page
+              </a>
+            </div>
+
+            <div class="field">
+              <label for="lgUser">Instagram Username</label>
+              <input id="lgUser" type="text" placeholder="your_username" autocomplete="username" />
+            </div>
+
+            <div class="field">
+              <label for="lgPass">Password</label>
+              <div class="input-wrap">
+                <input id="lgPass" type="password" placeholder="••••••••" autocomplete="current-password" />
+                <button class="eye-btn" id="eyeBtn" type="button" aria-label="Toggle password visibility">
+                  <svg id="eyeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -431,7 +505,7 @@
           </button>
 
           <p style="font-size:12px;color:var(--muted);text-align:center;line-height:1.6;">
-            Credentials are used only to authenticate with Instagram and are never stored on the server.
+            Your credentials are used only to authenticate and are never stored on the server.
           </p>
         </div>
       </div>
@@ -485,6 +559,7 @@
       // ── State ──────────────────────────────────────────────────────────────
       let sessionId = null;
       let currentFileId = null;
+      let loginMode = "cookie"; // "cookie" | "password"
 
       // ── Helpers ────────────────────────────────────────────────────────────
       function showScreen(name) {
@@ -519,10 +594,9 @@
         }
       }
 
-      // ── Password toggle ────────────────────────────────────────────────────
-      document.getElementById("eyeBtn").addEventListener("click", () => {
-        const inp = document.getElementById("lgPass");
-        const icon = document.getElementById("eyeIcon");
+      function toggleEye(inputId, iconId) {
+        const inp = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
         if (inp.type === "password") {
           inp.type = "text";
           icon.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`;
@@ -530,30 +604,64 @@
           inp.type = "password";
           icon.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
         }
+      }
+
+      // ── Tab switching ──────────────────────────────────────────────────────
+      document.getElementById("tabCookie").addEventListener("click", () => {
+        loginMode = "cookie";
+        document.getElementById("tabCookie").classList.add("active");
+        document.getElementById("tabPassword").classList.remove("active");
+        document.getElementById("cookiePanel").style.display = "";
+        document.getElementById("passwordPanel").style.display = "none";
+        clearAlert("loginAlert");
+        document.getElementById("checkpointPanel").classList.remove("show");
       });
+
+      document.getElementById("tabPassword").addEventListener("click", () => {
+        loginMode = "password";
+        document.getElementById("tabPassword").classList.add("active");
+        document.getElementById("tabCookie").classList.remove("active");
+        document.getElementById("passwordPanel").style.display = "";
+        document.getElementById("cookiePanel").style.display = "none";
+        clearAlert("loginAlert");
+      });
+
+      // ── Eye toggles ───────────────────────────────────────────────────────
+      document.getElementById("eyeBtnCookie").addEventListener("click", () => toggleEye("lgSessionId", "eyeIconCookie"));
+      document.getElementById("eyeBtn").addEventListener("click", () => toggleEye("lgPass", "eyeIcon"));
 
       // ── Login ──────────────────────────────────────────────────────────────
       document.getElementById("loginBtn").addEventListener("click", async () => {
         clearAlert("loginAlert");
-        const username = document.getElementById("lgUser").value.trim();
-        const password = document.getElementById("lgPass").value;
+        document.getElementById("checkpointPanel").classList.remove("show");
 
-        if (!username || !password) {
-          setAlert("loginAlert", "loginAlertMsg", "Please enter your username and password.");
-          return;
+        let body;
+        if (loginMode === "cookie") {
+          const sessionid = document.getElementById("lgSessionId").value.trim();
+          if (!sessionid) {
+            setAlert("loginAlert", "loginAlertMsg", "Please paste your Instagram session cookie.");
+            return;
+          }
+          body = { sessionid };
+        } else {
+          const username = document.getElementById("lgUser").value.trim();
+          const password = document.getElementById("lgPass").value;
+          if (!username || !password) {
+            setAlert("loginAlert", "loginAlertMsg", "Please enter your username and password.");
+            return;
+          }
+          body = { username, password };
         }
 
-        document.getElementById("checkpointPanel").classList.remove("show");
         setLoading("loginBtn", "loginBtnText", true, "Signing in…");
         try {
           const res = await fetch("/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify(body),
           });
           const data = await res.json();
 
-          // Instagram checkpoint — show the verification panel with a direct link
           if (res.status === 409 && data.detail?.type === "checkpoint") {
             const cpUrl = data.detail.url.startsWith("http")
               ? data.detail.url
@@ -564,17 +672,18 @@
           }
 
           if (!res.ok) {
-            setAlert("loginAlert", "loginAlertMsg", data.detail || "Login failed.");
+            const msg = typeof data.detail === "string" ? data.detail : (data.detail?.msg || "Login failed.");
+            setAlert("loginAlert", "loginAlertMsg", msg);
             return;
           }
 
           sessionId = data.session_id;
           document.getElementById("dashUsername").textContent = data.username;
           document.getElementById("avatarInitial").textContent = data.username.charAt(0).toUpperCase();
+          document.getElementById("lgSessionId").value = "";
           document.getElementById("lgUser").value = "";
           document.getElementById("lgPass").value = "";
           document.getElementById("lgPass").type = "password";
-          document.getElementById("checkpointPanel").classList.remove("show");
           showScreen("dash");
         } catch {
           setAlert("loginAlert", "loginAlertMsg", "Could not reach the server. Please try again.");
@@ -584,7 +693,7 @@
       });
 
       // allow Enter key on login fields
-      ["lgUser","lgPass"].forEach(id =>
+      ["lgSessionId", "lgUser", "lgPass"].forEach(id =>
         document.getElementById(id).addEventListener("keydown", e => {
           if (e.key === "Enter") document.getElementById("loginBtn").click();
         })

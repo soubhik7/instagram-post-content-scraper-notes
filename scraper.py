@@ -18,6 +18,25 @@ def extract_shortcode(url: str) -> str:
     raise ValueError(f"Could not extract shortcode from URL: {url}")
 
 
+def create_loader_from_sessionid(sessionid: str) -> tuple[instaloader.Instaloader, str]:
+    """Login using an Instagram session cookie. Returns (loader, username)."""
+    L = instaloader.Instaloader(
+        download_video_thumbnails=False,
+        save_metadata=False,
+        download_comments=False,
+    )
+    L.context._session.cookies.set("sessionid", sessionid, domain=".instagram.com")
+    username = L.test_login()
+    if not username:
+        raise ValueError("Session cookie is invalid or expired.")
+    # Persist so future password logins can reuse it
+    try:
+        L.save_session_to_file(_session_file(username))
+    except Exception:
+        pass
+    return L, username
+
+
 def create_loader_and_login(username: str, password: str) -> instaloader.Instaloader:
     L = instaloader.Instaloader(
         download_video_thumbnails=False,
