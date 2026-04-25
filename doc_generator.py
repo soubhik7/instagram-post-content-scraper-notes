@@ -274,7 +274,8 @@ def generate_document(raw_dir: str) -> str:
                 size=9, color="94A3B8", font="Calibri")
 
     # ---- Save ------------------------------------------------------------------
-    doc_path = os.path.join(raw_dir, f"Notes_{os.path.basename(os.path.normpath(raw_dir))}.docx")
+    timestamp = datetime.datetime.now().strftime("%d_%B_%Y_%I%M%p")
+    doc_path = os.path.join(raw_dir, f"Notes_{timestamp}.docx")
     doc.save(doc_path)
     for f in os.listdir(raw_dir):
         fp = os.path.join(raw_dir, f)

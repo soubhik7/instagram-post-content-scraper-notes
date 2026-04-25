@@ -3,359 +3,584 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Instagram Content Scraper</title>
+    <title>TechNotes — SmartDocs</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
       :root {
-        --bg-color-1: #0f172a;
-        --bg-color-2: #1e1b4b;
-        --bg-color-3: #312e81;
-        --text-main: #f8fafc;
-        --text-muted: #94a3b8;
+        --bg1: #0f172a;
+        --bg2: #1e1b4b;
+        --bg3: #312e81;
+        --text: #f8fafc;
+        --muted: #94a3b8;
         --primary: #6366f1;
-        --primary-hover: #4f46e5;
+        --primary-h: #4f46e5;
         --success: #10b981;
         --error: #ef4444;
-        --glass-bg: rgba(255, 255, 255, 0.05);
-        --glass-border: rgba(255, 255, 255, 0.1);
+        --warn: #f59e0b;
+        --glass: rgba(255,255,255,0.06);
+        --border: rgba(255,255,255,0.10);
+        --radius: 16px;
       }
 
       body {
-        margin: 0;
-        padding: 0;
         font-family: "Outfit", sans-serif;
-        background: linear-gradient(
-          135deg,
-          var(--bg-color-1),
-          var(--bg-color-2),
-          var(--bg-color-3)
-        );
+        background: linear-gradient(135deg, var(--bg1), var(--bg2), var(--bg3));
         background-size: 400% 400%;
-        animation: gradientBG 15s ease infinite;
-        color: var(--text-main);
+        animation: bgShift 18s ease infinite;
+        color: var(--text);
         min-height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
+        padding: 24px;
       }
 
-      @keyframes gradientBG {
-        0% {
-          background-position: 0% 50%;
-        }
-        50% {
-          background-position: 100% 50%;
-        }
-        100% {
-          background-position: 0% 50%;
-        }
+      @keyframes bgShift {
+        0%   { background-position: 0% 50%; }
+        50%  { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
       }
 
-      .container {
-        width: 90%;
-        max-width: 500px;
-        background: var(--glass-bg);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid var(--glass-border);
-        border-radius: 24px;
-        padding: 40px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        text-align: center;
-        transform: translateY(0);
-        transition: transform 0.3s ease;
+      /* ── Floating orbs ── */
+      .orb {
+        position: fixed;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.18;
+        pointer-events: none;
+        animation: float 12s ease-in-out infinite;
+      }
+      .orb1 { width: 380px; height: 380px; background: #818cf8; top: -80px; left: -100px; animation-delay: 0s; }
+      .orb2 { width: 280px; height: 280px; background: #a78bfa; bottom: -60px; right: -60px; animation-delay: -4s; }
+      .orb3 { width: 200px; height: 200px; background: #ec4899; top: 50%; left: 60%; animation-delay: -8s; }
+
+      @keyframes float {
+        0%, 100% { transform: translateY(0) scale(1); }
+        50%       { transform: translateY(-30px) scale(1.05); }
       }
 
-      .container:hover {
-        transform: translateY(-5px);
-      }
-
-      h1 {
-        font-weight: 700;
-        margin-top: 0;
-        margin-bottom: 8px;
-        font-size: 28px;
-        background: -webkit-linear-gradient(45deg, #a855f7, #ec4899);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-
-      p.subtitle {
-        color: var(--text-muted);
-        margin-top: 0;
-        margin-bottom: 32px;
-        font-size: 15px;
-      }
-
-      .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-
-      input[type="url"] {
-        width: 100%;
-        padding: 16px;
-        border-radius: 12px;
-        border: 1px solid var(--glass-border);
-        background: rgba(0, 0, 0, 0.2);
-        color: var(--text-main);
-        font-family: inherit;
-        font-size: 16px;
-        outline: none;
-        box-sizing: border-box;
-        transition: all 0.3s ease;
-      }
-
-      input[type="url"]:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-      }
-
-      input[type="url"]::placeholder {
-        color: #64748b;
-      }
-
-      button {
-        width: 100%;
-        padding: 16px;
-        border-radius: 12px;
-        border: none;
-        background: var(--primary);
-        color: white;
-        font-family: inherit;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow:
-          0 4px 6px -1px rgba(0, 0, 0, 0.1),
-          0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      /* ── Card ── */
+      .card {
         position: relative;
+        width: 100%;
+        max-width: 440px;
+        background: var(--glass);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 40px 36px 36px;
+        box-shadow: 0 32px 64px -16px rgba(0,0,0,0.6);
         overflow: hidden;
       }
 
-      button:hover {
-        background: var(--primary-hover);
-        transform: translateY(-2px);
-        box-shadow:
-          0 10px 15px -3px rgba(0, 0, 0, 0.2),
-          0 4px 6px -2px rgba(0, 0, 0, 0.1);
+      /* ── Screen switcher ── */
+      .screen {
+        transition: opacity 0.4s ease, transform 0.4s ease;
       }
-
-      button:active {
+      .screen.hidden {
+        opacity: 0;
+        transform: translateY(16px);
+        pointer-events: none;
+        position: absolute;
+        inset: 0;
+        padding: 40px 36px 36px;
+      }
+      .screen.visible {
+        opacity: 1;
         transform: translateY(0);
       }
 
-      button:disabled {
-        background: #475569;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
+      /* ── Logo / brand ── */
+      .brand {
+        text-align: center;
+        margin-bottom: 28px;
+      }
+      .brand-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        margin-bottom: 12px;
+        box-shadow: 0 8px 24px rgba(99,102,241,0.4);
+      }
+      .brand-icon svg { width: 26px; height: 26px; color: #fff; }
+      .brand h1 {
+        font-size: 26px;
+        font-weight: 700;
+        background: linear-gradient(90deg, #a5b4fc, #e879f9);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        line-height: 1.2;
+        margin-bottom: 4px;
+      }
+      .brand p {
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 400;
       }
 
-      .result-box {
-        margin-top: 24px;
-        padding: 20px;
+      /* ── Form elements ── */
+      .field { display: flex; flex-direction: column; gap: 6px; }
+      .field label { font-size: 13px; font-weight: 500; color: var(--muted); }
+
+      input {
+        width: 100%;
+        padding: 13px 16px;
         border-radius: 12px;
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid var(--glass-border);
-        display: none;
-        text-align: left;
-        animation: fadeIn 0.5s ease forwards;
+        border: 1px solid var(--border);
+        background: rgba(0,0,0,0.25);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 15px;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
       }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
+      input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.22);
       }
+      input::placeholder { color: #475569; }
+      input:disabled { opacity: 0.5; cursor: not-allowed; }
 
-      .result-box.success {
-        border-left: 4px solid var(--success);
-      }
-
-      .result-box.error {
-        border-left: 4px solid var(--error);
-      }
-
-      .result-title {
+      /* ── Buttons ── */
+      .btn {
+        width: 100%;
+        padding: 14px;
+        border-radius: 12px;
+        border: none;
+        font-family: inherit;
+        font-size: 15px;
         font-weight: 600;
-        margin-bottom: 8px;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.15s, box-shadow 0.2s, opacity 0.2s;
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
       }
-
-      .success .result-title {
-        color: var(--success);
+      .btn-primary {
+        background: linear-gradient(135deg, var(--primary), #818cf8);
+        color: #fff;
+        box-shadow: 0 4px 16px rgba(99,102,241,0.35);
       }
-      .error .result-title {
-        color: var(--error);
+      .btn-primary:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(99,102,241,0.45);
       }
+      .btn-primary:active:not(:disabled) { transform: translateY(0); }
+      .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
 
-      .result-text {
-        color: var(--text-muted);
-        font-size: 14px;
-        word-break: break-all;
-        margin-bottom: 8px;
-      }
-
-      .result-text strong {
-        color: var(--text-main);
+      .btn-ghost {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid var(--border);
+        font-size: 13px;
         font-weight: 500;
+        padding: 9px 14px;
+        width: auto;
+      }
+      .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.05); }
+
+      .btn-download {
+        background: linear-gradient(135deg, var(--success), #34d399);
+        color: #fff;
+        box-shadow: 0 4px 16px rgba(16,185,129,0.35);
+        margin-top: 4px;
+      }
+      .btn-download:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(16,185,129,0.45);
       }
 
-      /* Loading Spinner */
+      /* ── Spinner ── */
       .spinner {
-        display: none;
-        width: 24px;
-        height: 24px;
-        border: 3px solid rgba(255, 255, 255, 0.3);
+        width: 18px;
+        height: 18px;
+        border: 2.5px solid rgba(255,255,255,0.3);
+        border-top-color: #fff;
         border-radius: 50%;
-        border-top-color: white;
-        animation: spin 1s ease-in-out infinite;
-        margin: 0 auto;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
       }
+      @keyframes spin { to { transform: rotate(360deg); } }
 
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
+      /* ── Stack layout ── */
+      .stack { display: flex; flex-direction: column; gap: 14px; }
 
-      .btn-text {
-        display: block;
-      }
-
-      button.loading .btn-text {
+      /* ── Alert ── */
+      .alert {
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-size: 13px;
+        line-height: 1.5;
         display: none;
+        align-items: flex-start;
+        gap: 8px;
+        animation: fadeUp 0.3s ease;
+      }
+      .alert.show { display: flex; }
+      .alert-error  { background: rgba(239,68,68,0.12);  border: 1px solid rgba(239,68,68,0.3);  color: #fca5a5; }
+      .alert-success{ background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+      .alert svg { flex-shrink: 0; margin-top: 1px; }
+
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0); }
       }
 
-      button.loading .spinner {
-        display: block;
+      /* ── User badge (dashboard) ── */
+      .user-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: rgba(99,102,241,0.1);
+        border: 1px solid rgba(99,102,241,0.2);
       }
+      .user-info { display: flex; align-items: center; gap: 10px; }
+      .avatar {
+        width: 32px; height: 32px; border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0;
+      }
+      .user-name { font-size: 14px; font-weight: 600; }
+      .user-status { font-size: 11px; color: var(--success); font-weight: 500; }
+
+      /* ── Result card ── */
+      .result-card {
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid rgba(16,185,129,0.3);
+        background: rgba(16,185,129,0.08);
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+        animation: fadeUp 0.4s ease;
+      }
+      .result-card.show { display: flex; }
+      .result-card-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--success);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .result-filename {
+        font-size: 12px;
+        color: var(--muted);
+        word-break: break-all;
+        font-family: monospace;
+        background: rgba(0,0,0,0.2);
+        padding: 6px 10px;
+        border-radius: 6px;
+      }
+
+      /* ── Section label ── */
+      .section-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: -4px;
+      }
+
+      /* ── Password toggle ── */
+      .input-wrap { position: relative; }
+      .input-wrap input { padding-right: 44px; }
+      .eye-btn {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--muted);
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        width: auto;
+      }
+      .eye-btn:hover { color: var(--text); }
     </style>
   </head>
   <body>
-    <div class="container">
-      <h1>TechNotes</h1>
-      <p class="subtitle">Turn Instagram posts into clean, beautiful notes.</p>
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
 
-      <form id="scrapeForm" class="form-group">
-        <input
-          type="url"
-          id="urlInput"
-          placeholder="https://www.instagram.com/p/..."
-          required
-        />
-        <button type="submit" id="submitBtn">
-          <span class="btn-text">Extract Content</span>
-          <div class="spinner"></div>
-        </button>
-      </form>
+    <div class="card">
 
-      <div id="resultBox" class="result-box">
-        <div id="resultTitle" class="result-title"></div>
-        <div id="resultMessage" class="result-text"></div>
-        <div id="resultRaw" class="result-text" style="display: none"></div>
-        <div id="resultDoc" class="result-text" style="display: none"></div>
-        <div
-          id="resultInfo"
-          class="result-text"
-          style="
-            display: none;
-            color: var(--text-muted);
-            font-style: italic;
-            font-size: 13px;
-            margin-top: 12px;
-          "
-        ></div>
+      <!-- ══════════════ LOGIN SCREEN ══════════════ -->
+      <div id="loginScreen" class="screen visible">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>
+            </svg>
+          </div>
+          <h1>TechNotes</h1>
+          <p>Sign in with Instagram to get started</p>
+        </div>
+
+        <div class="stack">
+          <div id="loginAlert" class="alert alert-error">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16.5" stroke-width="3"/></svg>
+            <span id="loginAlertMsg"></span>
+          </div>
+
+          <div class="field">
+            <label for="lgUser">Instagram Username</label>
+            <input id="lgUser" type="text" placeholder="your_username" autocomplete="username" />
+          </div>
+
+          <div class="field">
+            <label for="lgPass">Password</label>
+            <div class="input-wrap">
+              <input id="lgPass" type="password" placeholder="••••••••" autocomplete="current-password" />
+              <button class="eye-btn" id="eyeBtn" type="button" aria-label="Toggle password visibility">
+                <svg id="eyeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="loginBtn" type="button">
+            <span id="loginBtnText">Sign In</span>
+          </button>
+
+          <p style="font-size:12px;color:var(--muted);text-align:center;line-height:1.6;">
+            Credentials are used only to authenticate with Instagram and are never stored on the server.
+          </p>
+        </div>
       </div>
-    </div>
+
+      <!-- ══════════════ DASHBOARD SCREEN ══════════════ -->
+      <div id="dashScreen" class="screen hidden">
+
+        <div class="user-bar">
+          <div class="user-info">
+            <div class="avatar" id="avatarInitial">?</div>
+            <div>
+              <div class="user-name" id="dashUsername">–</div>
+              <div class="user-status">● Connected</div>
+            </div>
+          </div>
+          <button class="btn btn-ghost" id="logoutBtn" type="button">Sign out</button>
+        </div>
+
+        <div class="stack">
+          <div id="extractAlert" class="alert alert-error">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16.5" stroke-width="3"/></svg>
+            <span id="extractAlertMsg"></span>
+          </div>
+
+          <div class="field">
+            <label for="postUrl">Instagram Post URL</label>
+            <input id="postUrl" type="url" placeholder="https://www.instagram.com/p/…" />
+          </div>
+
+          <button class="btn btn-primary" id="extractBtn" type="button">
+            <span id="extractBtnText">Extract &amp; Generate Doc</span>
+          </button>
+
+          <div class="result-card" id="resultCard">
+            <div class="result-card-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Document ready
+            </div>
+            <div class="result-filename" id="resultFilename"></div>
+            <button class="btn btn-download" id="downloadBtn" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download .docx
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /card -->
 
     <script>
-      document
-        .getElementById("scrapeForm")
-        .addEventListener("submit", async (e) => {
-          e.preventDefault();
+      // ── State ──────────────────────────────────────────────────────────────
+      let sessionId = null;
+      let currentFileId = null;
 
-          const urlInput = document.getElementById("urlInput").value;
-          const submitBtn = document.getElementById("submitBtn");
-          const resultBox = document.getElementById("resultBox");
-          const resultTitle = document.getElementById("resultTitle");
-          const resultMessage = document.getElementById("resultMessage");
-          const resultRaw = document.getElementById("resultRaw");
-          const resultDoc = document.getElementById("resultDoc");
-          const resultInfo = document.getElementById("resultInfo");
+      // ── Helpers ────────────────────────────────────────────────────────────
+      function showScreen(name) {
+        const login = document.getElementById("loginScreen");
+        const dash  = document.getElementById("dashScreen");
+        if (name === "login") {
+          login.classList.remove("hidden"); login.classList.add("visible");
+          dash.classList.remove("visible"); dash.classList.add("hidden");
+        } else {
+          dash.classList.remove("hidden"); dash.classList.add("visible");
+          login.classList.remove("visible"); login.classList.add("hidden");
+        }
+      }
 
-          // Set loading state
-          submitBtn.classList.add("loading");
-          submitBtn.disabled = true;
-          resultBox.style.display = "none";
-          resultRaw.style.display = "none";
-          resultDoc.style.display = "none";
-          resultInfo.style.display = "none";
+      function setAlert(id, msgId, msg) {
+        document.getElementById(msgId).textContent = msg;
+        document.getElementById(id).classList.add("show");
+      }
+      function clearAlert(id) {
+        document.getElementById(id).classList.remove("show");
+      }
 
-          try {
-            const response = await fetch("/extract", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ url: urlInput }),
-            });
+      function setLoading(btnId, textId, loading, label) {
+        const btn = document.getElementById(btnId);
+        const txt = document.getElementById(textId);
+        if (loading) {
+          btn.disabled = true;
+          txt.innerHTML = `<span class="spinner"></span>${label}`;
+        } else {
+          btn.disabled = false;
+          txt.textContent = label;
+        }
+      }
 
-            const data = await response.json();
+      // ── Password toggle ────────────────────────────────────────────────────
+      document.getElementById("eyeBtn").addEventListener("click", () => {
+        const inp = document.getElementById("lgPass");
+        const icon = document.getElementById("eyeIcon");
+        if (inp.type === "password") {
+          inp.type = "text";
+          icon.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`;
+        } else {
+          inp.type = "password";
+          icon.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+        }
+      });
 
-            resultBox.style.display = "block";
-            resultBox.className = "result-box";
+      // ── Login ──────────────────────────────────────────────────────────────
+      document.getElementById("loginBtn").addEventListener("click", async () => {
+        clearAlert("loginAlert");
+        const username = document.getElementById("lgUser").value.trim();
+        const password = document.getElementById("lgPass").value;
 
-            if (response.ok) {
-              resultBox.classList.add("success");
-              resultTitle.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> ✅ Success`;
-              resultMessage.textContent = data.message;
+        if (!username || !password) {
+          setAlert("loginAlert", "loginAlertMsg", "Please enter your username and password.");
+          return;
+        }
 
-              if (data.raw_directory) {
-                resultRaw.style.display = "block";
-                resultRaw.innerHTML = `<strong>Raw Folder:</strong> ${data.raw_directory}`;
-              }
-              if (data.document_path) {
-                resultDoc.style.display = "block";
-                resultDoc.innerHTML = `<strong>Document:</strong> ${data.document_path}`;
-              }
-              if (data.raw_directory || data.document_path) {
-                resultInfo.style.display = "block";
-                resultInfo.textContent =
-                  "📄 Your document is saved locally. Navigate to the folder above to open it.";
-              }
-            } else {
-              resultBox.classList.add("error");
-              resultTitle.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Error`;
-              resultMessage.textContent =
-                data.detail || "An unexpected error occurred.";
-            }
-          } catch (error) {
-            resultBox.style.display = "block";
-            resultBox.className = "result-box error";
-            resultTitle.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Connection Error`;
-            resultMessage.textContent = "Failed to connect to the server.";
-          } finally {
-            // Reset loading state
-            submitBtn.classList.remove("loading");
-            submitBtn.disabled = false;
+        setLoading("loginBtn", "loginBtnText", true, "Signing in…");
+        try {
+          const res = await fetch("/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            setAlert("loginAlert", "loginAlertMsg", data.detail || "Login failed.");
+            return;
           }
-        });
+          sessionId = data.session_id;
+          document.getElementById("dashUsername").textContent = data.username;
+          document.getElementById("avatarInitial").textContent = data.username.charAt(0).toUpperCase();
+          // Clear fields
+          document.getElementById("lgUser").value = "";
+          document.getElementById("lgPass").value = "";
+          document.getElementById("lgPass").type = "password";
+          showScreen("dash");
+        } catch {
+          setAlert("loginAlert", "loginAlertMsg", "Could not reach the server. Please try again.");
+        } finally {
+          setLoading("loginBtn", "loginBtnText", false, "Sign In");
+        }
+      });
+
+      // allow Enter key on login fields
+      ["lgUser","lgPass"].forEach(id =>
+        document.getElementById(id).addEventListener("keydown", e => {
+          if (e.key === "Enter") document.getElementById("loginBtn").click();
+        })
+      );
+
+      // ── Logout ─────────────────────────────────────────────────────────────
+      document.getElementById("logoutBtn").addEventListener("click", async () => {
+        if (sessionId) {
+          fetch("/logout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sessionId }),
+          }).catch(() => {});
+          sessionId = null;
+        }
+        currentFileId = null;
+        clearAlert("extractAlert");
+        document.getElementById("resultCard").classList.remove("show");
+        document.getElementById("postUrl").value = "";
+        showScreen("login");
+      });
+
+      // ── Extract ────────────────────────────────────────────────────────────
+      document.getElementById("extractBtn").addEventListener("click", async () => {
+        clearAlert("extractAlert");
+        document.getElementById("resultCard").classList.remove("show");
+        currentFileId = null;
+
+        const url = document.getElementById("postUrl").value.trim();
+        if (!url) {
+          setAlert("extractAlert", "extractAlertMsg", "Please paste an Instagram post URL.");
+          return;
+        }
+        if (!sessionId) {
+          setAlert("extractAlert", "extractAlertMsg", "Session lost. Please sign in again.");
+          showScreen("login");
+          return;
+        }
+
+        setLoading("extractBtn", "extractBtnText", true, "Extracting…");
+        try {
+          const res = await fetch("/extract", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sessionId, url }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            if (res.status === 401) {
+              sessionId = null;
+              setAlert("extractAlert", "extractAlertMsg", "Session expired. Please sign in again.");
+              setTimeout(() => showScreen("login"), 1800);
+              return;
+            }
+            setAlert("extractAlert", "extractAlertMsg", data.detail || "Extraction failed.");
+            return;
+          }
+          currentFileId = data.file_id;
+          document.getElementById("resultFilename").textContent = data.filename;
+          document.getElementById("resultCard").classList.add("show");
+        } catch {
+          setAlert("extractAlert", "extractAlertMsg", "Could not reach the server. Please try again.");
+        } finally {
+          setLoading("extractBtn", "extractBtnText", false, "Extract & Generate Doc");
+        }
+      });
+
+      document.getElementById("postUrl").addEventListener("keydown", e => {
+        if (e.key === "Enter") document.getElementById("extractBtn").click();
+      });
+
+      // ── Download ───────────────────────────────────────────────────────────
+      document.getElementById("downloadBtn").addEventListener("click", () => {
+        if (!currentFileId) return;
+        window.location.href = `/download/${currentFileId}`;
+      });
     </script>
   </body>
 </html>
