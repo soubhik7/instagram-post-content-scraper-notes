@@ -1,4 +1,3 @@
-import base64
 import os
 import re
 import secrets
@@ -19,26 +18,6 @@ app = FastAPI(title="SmartDocs")
 
 os.makedirs("static", exist_ok=True)
 os.makedirs("docs", exist_ok=True)
-os.makedirs(SESSIONS_DIR, exist_ok=True)
-
-
-def _preload_session_from_env():
-    """Decode INSTAGRAM_SESSION_B64 env var and write to sessions dir on startup."""
-    encoded = os.environ.get("INSTAGRAM_SESSION_B64", "").strip()
-    username = os.environ.get("INSTAGRAM_USERNAME", "").strip()
-    if not encoded or not username:
-        return
-    session_path = os.path.join(SESSIONS_DIR, f"session-{username}")
-    try:
-        data = base64.b64decode(encoded)
-        with open(session_path, "wb") as f:
-            f.write(data)
-        print(f"Pre-loaded session for {username} from env var.")
-    except Exception as e:
-        print(f"Failed to pre-load session from env var: {e}")
-
-
-_preload_session_from_env()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
