@@ -113,8 +113,6 @@ def generate_document(raw_dir: str) -> str:
     a polished Word document, and saves it as <shortcode>_combined.docx in the
     same directory.  Returns the absolute path to the created docx.
     """
-    shortcode = os.path.basename(os.path.normpath(raw_dir))
-
     # --- Discover source files --------------------------------------------------
     txt_file = None
     image_files = []
@@ -137,85 +135,40 @@ def generate_document(raw_dir: str) -> str:
     # --- Create document --------------------------------------------------------
     doc = Document()
 
-    # Page setup: A4, 2.5 cm margins all sides
+    # Page setup: A4, 1.8 cm margins all sides
     section = doc.sections[0]
     section.page_width  = Cm(21)
     section.page_height = Cm(29.7)
     for attr in ("left_margin", "right_margin", "top_margin", "bottom_margin"):
-        setattr(section, attr, Cm(2.5))
+        setattr(section, attr, Cm(1.8))
 
     # ---- 1. Header banner ------------------------------------------------------
     banner_table = doc.add_table(rows=1, cols=1)
     _remove_table_borders(banner_table)
     banner_cell = banner_table.cell(0, 0)
     _set_cell_bg(banner_cell, "312E81")
-    _set_cell_margins(banner_cell, top=400, start=300, bottom=280, end=300)
+    _set_cell_margins(banner_cell, top=240, start=300, bottom=200, end=300)
 
     # Clear default empty paragraph inside the cell
     for p in banner_cell.paragraphs:
         p._element.getparent().remove(p._element)
 
-    # Title paragraph
+    # Title + date on one line
     title_para = banner_cell.add_paragraph()
     title_para.paragraph_format.space_before = Pt(0)
-    title_para.paragraph_format.space_after  = Pt(2)
-    _styled_run(title_para, "TechNotes", size=30, bold=True,
+    title_para.paragraph_format.space_after  = Pt(0)
+    _styled_run(title_para, "TechNotes", size=24, bold=True,
                 color="FFFFFF", font="Calibri Light")
-
-    # Subtitle paragraph
-    sub_para = banner_cell.add_paragraph()
-    sub_para.paragraph_format.space_before = Pt(0)
-    sub_para.paragraph_format.space_after  = Pt(0)
-    _styled_run(sub_para, "Instagram Content Report", size=12, italic=True,
+    today = datetime.datetime.now().strftime("%B %d, %Y")
+    _styled_run(title_para, f"   |   {today}", size=10, italic=True,
                 color="C7D2FE", font="Calibri Light")
-
-    doc.add_paragraph()  # breathing room after banner
-
-    # ---- 2. Metadata row -------------------------------------------------------
-    meta_table = doc.add_table(rows=1, cols=2)
-    _remove_table_borders(meta_table)
-
-    # Set column widths (8 cm each)
-    for cell in meta_table.columns[0].cells:
-        cell.width = Cm(8)
-    for cell in meta_table.columns[1].cells:
-        cell.width = Cm(8)
-
-    left_cell  = meta_table.cell(0, 0)
-    right_cell = meta_table.cell(0, 1)
-
-    for cell in (left_cell, right_cell):
-        _set_cell_bg(cell, "EEF2FF")
-        _set_cell_margins(cell, top=160, start=200, bottom=160, end=200)
-
-    # Left: Post ID
-    left_para = left_cell.paragraphs[0]
-    left_para.paragraph_format.space_before = Pt(0)
-    left_para.paragraph_format.space_after  = Pt(0)
-    _styled_run(left_para, "Post ID: ", size=10, bold=True,
-                color="1E1B4B", font="Calibri")
-    _styled_run(left_para, shortcode, size=10, bold=False,
-                color="6366F1", font="Calibri")
-
-    # Right: Generated date (right-aligned)
-    right_para = right_cell.paragraphs[0]
-    right_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    right_para.paragraph_format.space_before = Pt(0)
-    right_para.paragraph_format.space_after  = Pt(0)
-    today = datetime.date.today().strftime("%B %d, %Y")
-    _styled_run(right_para, "Generated: ", size=10, bold=True,
-                color="1E1B4B", font="Calibri")
-    _styled_run(right_para, today, size=10, bold=False,
-                color="6366F1", font="Calibri")
-
-    doc.add_paragraph()  # blank paragraph after metadata
 
     # ---- 3. Caption section ----------------------------------------------------
     def add_section_heading(doc, text: str):
         para = doc.add_paragraph()
-        para.paragraph_format.space_before = Pt(10)
-        para.paragraph_format.space_after  = Pt(2)
-        _styled_run(para, text, size=14, bold=True,
+        para.paragraph_format.space_before = Pt(6)
+        para.paragraph_format.space_after  = Pt(1)
+        _styled_run(para, text, size=12, bold=True,
                     color="6366F1", font="Calibri Light")
         _add_divider(doc)
 
@@ -225,40 +178,36 @@ def generate_document(raw_dir: str) -> str:
     for line in caption_lines:
         if line.strip():
             para = doc.add_paragraph()
-            para.paragraph_format.space_after  = Pt(6)
-            para.paragraph_format.line_spacing = Pt(17)
-            _styled_run(para, line, size=11, color="1E1B4B", font="Calibri")
+            para.paragraph_format.space_after  = Pt(3)
+            para.paragraph_format.line_spacing = Pt(14)
+            _styled_run(para, line, size=10, color="1E1B4B", font="Calibri")
         else:
             blank = doc.add_paragraph()
             blank.paragraph_format.space_after = Pt(0)
 
     # ---- 4. Images section -----------------------------------------------------
-    n = len(image_files)
-    add_section_heading(doc, f"Images ({n})")
+    if image_files:
+        add_section_heading(doc, "Images")
 
-    for idx, img_path in enumerate(image_files, start=1):
-        # Label
-        label_para = doc.add_paragraph()
-        label_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        label_para.paragraph_format.space_before = Pt(10)
-        label_para.paragraph_format.space_after  = Pt(4)
-        _styled_run(label_para, f"— Image {idx} of {n} —",
-                    size=9, italic=True, color="94A3B8", font="Calibri")
+        # Lay images out in a 2-column table so multiple fit per page
+        img_table = doc.add_table(rows=0, cols=2)
+        _remove_table_borders(img_table)
 
-        # Image
-        try:
-            img_para = doc.add_paragraph()
-            img_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            img_para.paragraph_format.space_after = Pt(20)
-            run = img_para.add_run()
-            run.add_picture(img_path, width=Inches(5.5))
-        except Exception as exc:
-            err_para = doc.add_paragraph()
-            err_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            err_para.paragraph_format.space_after = Pt(20)
-            _styled_run(err_para,
-                        f"[Could not insert image: {os.path.basename(img_path)} — {exc}]",
-                        size=9, italic=True, color="DC2626", font="Calibri")
+        for i in range(0, len(image_files), 2):
+            row = img_table.add_row()
+            for col, img_path in enumerate(image_files[i:i+2]):
+                cell = row.cells[col]
+                _set_cell_margins(cell, top=80, start=80, bottom=80, end=80)
+                para = cell.paragraphs[0]
+                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                para.paragraph_format.space_before = Pt(0)
+                para.paragraph_format.space_after  = Pt(0)
+                try:
+                    para.add_run().add_picture(img_path, width=Inches(3.0))
+                except Exception as exc:
+                    _styled_run(para,
+                                f"[Could not insert: {os.path.basename(img_path)} — {exc}]",
+                                size=8, italic=True, color="DC2626", font="Calibri")
 
     # ---- 5. Footer -------------------------------------------------------------
     footer = section.footer
