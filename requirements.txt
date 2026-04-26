@@ -1,6 +1,8 @@
 fastapi
 uvicorn
 instaloader
+yt-dlp
+playwright
 python-docx
 python-multipart
 python-dotenv

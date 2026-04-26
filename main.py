@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from scraper import create_loader_and_login, scrape_instagram_post
+from scraper import create_loader_and_login, scrape_instagram_post, create_fb_session, scrape_facebook_post
 from doc_generator import generate_document
 
 app = FastAPI(title="SmartDocs")
@@ -30,8 +30,11 @@ FILE_TTL = timedelta(hours=1)
 
 _lock = threading.Lock()
 
-# session_id -> {loader, username, expires_at}
+# session_id -> {loader, username, expires_at}          (Instagram)
 _sessions: Dict[str, dict] = {}
+
+# fb_session_id -> {username, cookie_file, expires_at}  (Facebook)
+_fb_sessions: Dict[str, dict] = {}
 
 # file_id -> {path, expires_at}
 _files: Dict[str, dict] = {}
@@ -40,12 +43,9 @@ _files: Dict[str, dict] = {}
 def _purge_expired():
     now = datetime.utcnow()
     with _lock:
-        expired_s = [k for k, v in _sessions.items() if v["expires_at"] < now]
-        for k in expired_s:
-            del _sessions[k]
-        expired_f = [k for k, v in _files.items() if v["expires_at"] < now]
-        for k in expired_f:
-            del _files[k]
+        for store in (_sessions, _fb_sessions, _files):
+            for k in [k for k, v in store.items() if v["expires_at"] < now]:
+                del store[k]
 
 
 def _get_session(session_id: str) -> dict:
@@ -54,6 +54,15 @@ def _get_session(session_id: str) -> dict:
         session = _sessions.get(session_id)
     if not session:
         raise HTTPException(status_code=401, detail="Session expired or invalid. Please log in again.")
+    return session
+
+
+def _get_fb_session(fb_session_id: str) -> dict:
+    _purge_expired()
+    with _lock:
+        session = _fb_sessions.get(fb_session_id)
+    if not session:
+        raise HTTPException(status_code=401, detail="Facebook session expired or invalid. Please log in again.")
     return session
 
 
@@ -82,6 +91,21 @@ class ExtractResponse(BaseModel):
 
 class LogoutRequest(BaseModel):
     session_id: str
+
+class LoginFbRequest(BaseModel):
+    username: str
+    password: str
+
+class LoginFbResponse(BaseModel):
+    fb_session_id: str
+    username: str
+
+class ExtractFbRequest(BaseModel):
+    fb_session_id: str
+    url: str
+
+class LogoutFbRequest(BaseModel):
+    fb_session_id: str
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +163,55 @@ def extract(req: ExtractRequest):
 
     try:
         raw_dir = scrape_instagram_post(req.url, loader)
+        doc_path = generate_document(raw_dir)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    file_id = secrets.token_urlsafe(24)
+    filename = os.path.basename(doc_path)
+    with _lock:
+        _files[file_id] = {
+            "path": doc_path,
+            "filename": filename,
+            "expires_at": datetime.utcnow() + FILE_TTL,
+        }
+    return ExtractResponse(file_id=file_id, filename=filename)
+
+
+@app.post("/login-fb", response_model=LoginFbResponse)
+def login_fb(req: LoginFbRequest):
+    if not req.username.strip() or not req.password:
+        raise HTTPException(status_code=400, detail="Username and password are required.")
+    try:
+        fb_session = create_fb_session(req.username.strip(), req.password)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Facebook login error: {e}")
+
+    fb_session_id = secrets.token_urlsafe(32)
+    with _lock:
+        _fb_sessions[fb_session_id] = {
+            **fb_session,
+            "expires_at": datetime.utcnow() + SESSION_TTL,
+        }
+    return LoginFbResponse(fb_session_id=fb_session_id, username=req.username.strip())
+
+
+@app.post("/logout-fb")
+def logout_fb(req: LogoutFbRequest):
+    with _lock:
+        _fb_sessions.pop(req.fb_session_id, None)
+    return {"ok": True}
+
+
+@app.post("/extract-fb", response_model=ExtractResponse)
+def extract_fb(req: ExtractFbRequest):
+    fb_session = _get_fb_session(req.fb_session_id)
+    if not req.url.strip():
+        raise HTTPException(status_code=400, detail="URL is required.")
+    try:
+        raw_dir = scrape_facebook_post(req.url.strip(), fb_session)
         doc_path = generate_document(raw_dir)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

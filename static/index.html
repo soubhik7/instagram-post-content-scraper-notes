@@ -345,6 +345,44 @@
         margin-bottom: -4px;
       }
 
+      /* ── Platform tabs ── */
+      .platform-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 24px;
+        background: rgba(0,0,0,0.2);
+        border-radius: 12px;
+        padding: 4px;
+      }
+      .ptab {
+        flex: 1;
+        padding: 9px 12px;
+        border-radius: 9px;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: background 0.2s, color 0.2s;
+      }
+      .ptab.active {
+        background: var(--glass);
+        color: var(--text);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      }
+      .ptab:hover:not(.active) { color: var(--text); }
+      .ptab-ig.active  { background: linear-gradient(135deg,rgba(99,102,241,0.25),rgba(168,85,247,0.2)); }
+      .ptab-fb.active  { background: linear-gradient(135deg,rgba(24,119,242,0.25),rgba(24,119,242,0.15)); }
+
+      /* ── Facebook screen ── */
+      #fbScreen .brand p { color: var(--muted); font-size: 13px; }
+
       /* ── Password toggle ── */
       .input-wrap { position: relative; }
       .input-wrap input { padding-right: 44px; }
@@ -371,6 +409,18 @@
     <div class="orb orb3"></div>
 
     <div class="card">
+
+      <!-- ══════════════ PLATFORM TABS ══════════════ -->
+      <div class="platform-tabs" id="platformTabs">
+        <button class="ptab ptab-ig active" id="tabIg" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+          Instagram
+        </button>
+        <button class="ptab ptab-fb" id="tabFb" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.791-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.514c-1.491 0-1.956.93-1.956 1.887v2.266h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
+          Facebook
+        </button>
+      </div>
 
       <!-- ══════════════ LOGIN SCREEN ══════════════ -->
       <div id="loginScreen" class="screen visible">
@@ -479,25 +529,123 @@
         </div>
       </div>
 
+      <!-- ══════════════ FACEBOOK LOGIN SCREEN ══════════════ -->
+      <div id="fbLoginScreen" class="screen hidden">
+        <div class="brand">
+          <div class="brand-icon" style="background: linear-gradient(135deg,#1877f2,#0c5dc7);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.791-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.514c-1.491 0-1.956.93-1.956 1.887v2.266h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
+          </div>
+          <h1>TechNotes</h1>
+          <p>Sign in with Facebook to get started</p>
+        </div>
+
+        <div class="stack">
+          <div id="fbLoginAlert" class="alert alert-error">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16.5" stroke-width="3"/></svg>
+            <span id="fbLoginAlertMsg"></span>
+          </div>
+
+          <div class="field">
+            <label for="fbUser">Facebook Email / Username</label>
+            <input id="fbUser" type="text" placeholder="you@example.com" autocomplete="username" />
+          </div>
+
+          <div class="field">
+            <label for="fbPass">Password</label>
+            <div class="input-wrap">
+              <input id="fbPass" type="password" placeholder="••••••••" autocomplete="current-password" />
+              <button class="eye-btn" id="fbEyeBtn" type="button" aria-label="Toggle password visibility">
+                <svg id="fbEyeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="fbLoginBtn" type="button" style="background:linear-gradient(135deg,#1877f2,#42a5f5);box-shadow:0 4px 16px rgba(24,119,242,0.35);">
+            <span id="fbLoginBtnText">Sign In</span>
+          </button>
+
+          <p style="font-size:12px;color:var(--muted);text-align:center;line-height:1.6;">
+            Credentials are used only to authenticate with Facebook and are never stored on the server.
+          </p>
+        </div>
+      </div>
+
+      <!-- ══════════════ FACEBOOK DASHBOARD ══════════════ -->
+      <div id="fbDashScreen" class="screen hidden">
+
+        <div class="user-bar" style="border-color:rgba(24,119,242,0.2);background:rgba(24,119,242,0.08);">
+          <div class="user-info">
+            <div class="avatar" id="fbAvatarInitial" style="background:linear-gradient(135deg,#1877f2,#42a5f5);">?</div>
+            <div>
+              <div class="user-name" id="fbDashUsername">–</div>
+              <div class="user-status">● Connected</div>
+            </div>
+          </div>
+          <button class="btn btn-ghost" id="fbLogoutBtn" type="button">Sign out</button>
+        </div>
+
+        <div class="stack">
+          <div id="fbExtractAlert" class="alert alert-error">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16.5" stroke-width="3"/></svg>
+            <span id="fbExtractAlertMsg"></span>
+          </div>
+
+          <div class="field">
+            <label for="fbPostUrl">Facebook Post URL</label>
+            <input id="fbPostUrl" type="url" placeholder="https://www.facebook.com/…" />
+          </div>
+
+          <button class="btn btn-primary" id="fbExtractBtn" type="button" style="background:linear-gradient(135deg,#1877f2,#42a5f5);box-shadow:0 4px 16px rgba(24,119,242,0.35);">
+            <span id="fbExtractBtnText">Extract &amp; Generate Doc</span>
+          </button>
+
+          <div class="result-card" id="fbResultCard">
+            <div class="result-card-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Document ready
+            </div>
+            <div class="result-filename" id="fbResultFilename"></div>
+            <button class="btn btn-download" id="fbDownloadBtn" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download .docx
+            </button>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /card -->
 
     <script>
       // ── State ──────────────────────────────────────────────────────────────
-      let sessionId = null;
+      let sessionId   = null;   // Instagram
+      let fbSessionId = null;   // Facebook
       let currentFileId = null;
+      let fbFileId      = null;
 
       // ── Helpers ────────────────────────────────────────────────────────────
+      const SCREENS = ["loginScreen", "dashScreen", "fbLoginScreen", "fbDashScreen"];
       function showScreen(name) {
-        const login = document.getElementById("loginScreen");
-        const dash  = document.getElementById("dashScreen");
-        if (name === "login") {
-          login.classList.remove("hidden"); login.classList.add("visible");
-          dash.classList.remove("visible"); dash.classList.add("hidden");
-        } else {
-          dash.classList.remove("hidden"); dash.classList.add("visible");
-          login.classList.remove("visible"); login.classList.add("hidden");
-        }
+        SCREENS.forEach(id => {
+          const el = document.getElementById(id);
+          if (id === name) { el.classList.remove("hidden"); el.classList.add("visible"); }
+          else             { el.classList.remove("visible"); el.classList.add("hidden"); }
+        });
       }
+
+      // ── Platform tabs ──────────────────────────────────────────────────────
+      document.getElementById("tabIg").addEventListener("click", () => {
+        document.getElementById("tabIg").classList.add("active");
+        document.getElementById("tabFb").classList.remove("active");
+        showScreen(sessionId ? "dashScreen" : "loginScreen");
+      });
+
+      document.getElementById("tabFb").addEventListener("click", () => {
+        document.getElementById("tabFb").classList.add("active");
+        document.getElementById("tabIg").classList.remove("active");
+        showScreen(fbSessionId ? "fbDashScreen" : "fbLoginScreen");
+      });
 
       function setAlert(id, msgId, msg) {
         document.getElementById(msgId).textContent = msg;
@@ -575,7 +723,7 @@
           document.getElementById("lgPass").value = "";
           document.getElementById("lgPass").type = "password";
           document.getElementById("checkpointPanel").classList.remove("show");
-          showScreen("dash");
+          showScreen("dashScreen");
         } catch {
           setAlert("loginAlert", "loginAlertMsg", "Could not reach the server. Please try again.");
         } finally {
@@ -604,7 +752,7 @@
         clearAlert("extractAlert");
         document.getElementById("resultCard").classList.remove("show");
         document.getElementById("postUrl").value = "";
-        showScreen("login");
+        showScreen("loginScreen");
       });
 
       // ── Extract ────────────────────────────────────────────────────────────
@@ -636,7 +784,7 @@
             if (res.status === 401) {
               sessionId = null;
               setAlert("extractAlert", "extractAlertMsg", "Session expired. Please sign in again.");
-              setTimeout(() => showScreen("login"), 1800);
+              setTimeout(() => showScreen("loginScreen"), 1800);
               return;
             }
             setAlert("extractAlert", "extractAlertMsg", data.detail || "Extraction failed.");
@@ -660,6 +808,133 @@
       document.getElementById("downloadBtn").addEventListener("click", () => {
         if (!currentFileId) return;
         window.location.href = `/download/${currentFileId}`;
+      });
+
+      // ── Facebook password toggle ───────────────────────────────────────────
+      document.getElementById("fbEyeBtn").addEventListener("click", () => {
+        const inp  = document.getElementById("fbPass");
+        const icon = document.getElementById("fbEyeIcon");
+        if (inp.type === "password") {
+          inp.type = "text";
+          icon.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`;
+        } else {
+          inp.type = "password";
+          icon.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+        }
+      });
+
+      // ── Facebook Login ─────────────────────────────────────────────────────
+      async function fbLogin() {
+        clearAlert("fbLoginAlert");
+        const username = document.getElementById("fbUser").value.trim();
+        const password = document.getElementById("fbPass").value;
+        if (!username || !password) {
+          setAlert("fbLoginAlert", "fbLoginAlertMsg", "Please enter your email/username and password.");
+          return;
+        }
+        setLoading("fbLoginBtn", "fbLoginBtnText", true, "Signing in…");
+        try {
+          const res  = await fetch("/login-fb", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            setAlert("fbLoginAlert", "fbLoginAlertMsg", data.detail || "Login failed.");
+            return;
+          }
+          fbSessionId = data.fb_session_id;
+          document.getElementById("fbDashUsername").textContent  = data.username;
+          document.getElementById("fbAvatarInitial").textContent = data.username.charAt(0).toUpperCase();
+          document.getElementById("fbUser").value = "";
+          document.getElementById("fbPass").value = "";
+          document.getElementById("fbPass").type  = "password";
+          showScreen("fbDashScreen");
+        } catch {
+          setAlert("fbLoginAlert", "fbLoginAlertMsg", "Could not reach the server. Please try again.");
+        } finally {
+          setLoading("fbLoginBtn", "fbLoginBtnText", false, "Sign In");
+        }
+      }
+
+      document.getElementById("fbLoginBtn").addEventListener("click", fbLogin);
+      ["fbUser","fbPass"].forEach(id =>
+        document.getElementById(id).addEventListener("keydown", e => {
+          if (e.key === "Enter") fbLogin();
+        })
+      );
+
+      // ── Facebook Logout ────────────────────────────────────────────────────
+      document.getElementById("fbLogoutBtn").addEventListener("click", async () => {
+        if (fbSessionId) {
+          fetch("/logout-fb", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fb_session_id: fbSessionId }),
+          }).catch(() => {});
+          fbSessionId = null;
+        }
+        fbFileId = null;
+        clearAlert("fbExtractAlert");
+        document.getElementById("fbResultCard").classList.remove("show");
+        document.getElementById("fbPostUrl").value = "";
+        showScreen("fbLoginScreen");
+      });
+
+      // ── Facebook Extract ───────────────────────────────────────────────────
+      async function fbExtract() {
+        clearAlert("fbExtractAlert");
+        document.getElementById("fbResultCard").classList.remove("show");
+        fbFileId = null;
+
+        const url = document.getElementById("fbPostUrl").value.trim();
+        if (!url) {
+          setAlert("fbExtractAlert", "fbExtractAlertMsg", "Please paste a Facebook post URL.");
+          return;
+        }
+        if (!fbSessionId) {
+          setAlert("fbExtractAlert", "fbExtractAlertMsg", "Session lost. Please sign in again.");
+          showScreen("fbLoginScreen");
+          return;
+        }
+
+        setLoading("fbExtractBtn", "fbExtractBtnText", true, "Extracting…");
+        try {
+          const res  = await fetch("/extract-fb", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fb_session_id: fbSessionId, url }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            if (res.status === 401) {
+              fbSessionId = null;
+              setAlert("fbExtractAlert", "fbExtractAlertMsg", "Session expired. Please sign in again.");
+              setTimeout(() => showScreen("fbLoginScreen"), 1800);
+              return;
+            }
+            setAlert("fbExtractAlert", "fbExtractAlertMsg", data.detail || "Extraction failed.");
+            return;
+          }
+          fbFileId = data.file_id;
+          document.getElementById("fbResultFilename").textContent = data.filename;
+          document.getElementById("fbResultCard").classList.add("show");
+        } catch {
+          setAlert("fbExtractAlert", "fbExtractAlertMsg", "Could not reach the server. Please try again.");
+        } finally {
+          setLoading("fbExtractBtn", "fbExtractBtnText", false, "Extract & Generate Doc");
+        }
+      }
+
+      document.getElementById("fbExtractBtn").addEventListener("click", fbExtract);
+      document.getElementById("fbPostUrl").addEventListener("keydown", e => {
+        if (e.key === "Enter") fbExtract();
+      });
+
+      document.getElementById("fbDownloadBtn").addEventListener("click", () => {
+        if (!fbFileId) return;
+        window.location.href = `/download/${fbFileId}`;
       });
     </script>
   </body>
